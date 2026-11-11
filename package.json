@@ -1,0 +1,13 @@
+{
+  "name": "toll-agent-templates",
+  "private": true,
+  "type": "module",
+  "description": "Five small paid-agent templates: sell one route for USDG over x402 on Robinhood Chain, settled by Toll's facilitator.",
+  "license": "MIT",
+  "workspaces": ["coin-safety", "stock-researcher", "model-router", "wrap-api", "blank"],
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "test": "node --test test/repo.test.mjs"
+  },
+  "engines": { "node": ">=20.19" }
+}

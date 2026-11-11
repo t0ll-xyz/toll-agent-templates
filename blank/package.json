@@ -1,0 +1,18 @@
+{
+  "name": "blank",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A blank paid agent: sells GET /hello for USDG over x402 on Robinhood Chain. Put your own code in handler.mjs.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.mjs"
+  },
+  "dependencies": {
+    "@tollxyz/x402-seller": "^0.3.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
