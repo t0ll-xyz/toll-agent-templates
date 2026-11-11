@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createApp } from "../app.mjs";
-import { PAY_TO, jsonRes, stub, paid, unpaid, commonTests, run, freePort } from "./kit.mjs";
+import { PAY_TO, jsonRes, stub, paid, unpaid, commonTests, run } from "./kit.mjs";
 
 const dir = new URL("../", import.meta.url);
 const UP = "https://api.example.test/v1";
@@ -13,14 +13,14 @@ const CALL = (rest) => `http://agent.test/call/${rest}`;
 commonTests({ test, assert, dir, env: { PRICE: "0.02", UPSTREAM_URL: UP }, price: "0.02", atomic: "20000", sells: "ALL /call/*", unpaidUrl: "/call/anything" });
 
 test("it does not start without PRICE (there is no default), and says what to set", async () => {
-  const s = run(dir, { PAY_TO, UPSTREAM_URL: UP, PORT: freePort() });
+  const s = run(dir, { PAY_TO, UPSTREAM_URL: UP, PORT: "0" });
   assert.notEqual(await s.exited, 0);
   assert.match(s.err(), /PRICE/);
   assert.throws(() => createApp({ PAY_TO, UPSTREAM_URL: UP }), /PRICE/);
 });
 
 test("it does not start without UPSTREAM_URL", async () => {
-  const s = run(dir, { PAY_TO, PRICE: "0.02", PORT: freePort() });
+  const s = run(dir, { PAY_TO, PRICE: "0.02", PORT: "0" });
   assert.notEqual(await s.exited, 0);
   assert.match(s.err(), /UPSTREAM_URL/);
 });
@@ -94,6 +94,7 @@ test("a host that resolves to a private address is refused at call time (502, no
   const s = stub(() => jsonRes({}));
   const res = await paid(createApp(env, deps(s, { lookup: async () => [{ address: "10.0.0.8", family: 4 }] })), CALL("x"));
   assert.equal(res.status, 502);
+  assert.match((await res.json()).error, /^The upstream host resolves to a private address./);
   assert.equal(s.calls.length, 0);
   assert.equal(s.facilitator.filter((u) => u.endsWith("/settle")).length, 0);
 });
@@ -110,6 +111,14 @@ test("a path that climbs out of /call/ never reaches the upstream", async () => 
   const app = createApp(env, deps(s));
   assert.equal((await app(new Request(CALL("%2e%2e/admin")))).status, 404);
   assert.equal(s.calls.length, 0);
+});
+
+test("a path with an encoded slash or backslash is a 400 before payment is asked", async () => {
+  const s = stub(() => jsonRes({}));
+  const app = createApp(env, deps(s));
+  for (const rest of ["a%2f..%2f..%2fadmin", "a%2Fb", "a%5cb", "x/%5C..%5Cy"]) assert.equal((await app(new Request(CALL(rest)))).status, 400, rest);
+  assert.equal(s.calls.length, 0);
+  assert.equal((await app(new Request(CALL("a/b%20c")))).status, 402, "other encodings are fine");
 });
 
 test("AGENT_ID is passed as agentId in the 402", async () => {

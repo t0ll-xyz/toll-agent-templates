@@ -30,7 +30,8 @@ PAY_TO=0xYourWallet PRICE=0.02 UPSTREAM_URL=https://api.example.com/v1 npm start
 
 - `UPSTREAM_URL` must be `https:` and a public host. The server refuses to start for `http:`, `localhost`, private or
   link-local addresses (10.x, 172.16-31.x, 192.168.x, 169.254.x and the like), IPv6 addresses, names ending in `.local` or
-  `.internal`, or a URL with a user and password. A name that resolves to a private address is refused at call time too.
+  `.internal`, or a URL with a user and password. A name that resolves to a private address is refused at call time too. The name is resolved again by the fetch itself, so a host that changes its DNS answer between the two lookups is not caught: keep `UPSTREAM_URL` to a host you trust.
+- A path with an encoded slash or backslash (`%2f`, `%5c`) is a `400` before payment is asked.
 - Forwarded: the method, the query, the body (up to 1 MB) and the caller's `content-type` and `accept`. Nothing else the
   caller sent goes along, and the payment header never does.
 - The upstream's redirects are not followed. The answer (status, body, content type) comes back as it is, up to 5 MB.

@@ -3,8 +3,9 @@
 import { json } from "./seller.mjs";
 
 export async function handle(req, env, deps = {}) {
-  // To check a coin with Toll's free check first, uncomment these two lines (add your own 0x... token):
+  // To check a coin with Toll's free check first, uncomment the two code lines (add your own 0x... token).
+  // Toll's answer has a headline and a tally; coin-safety/handler.mjs shows how the verdict word is worked out from the tally.
   // const check = await (deps.fetch ?? fetch)("https://t0ll.xyz/api/check?addr=0x...").then((r) => r.json());
-  // return json({ hello: "world", verdict: check.verdict });
+  // return json({ hello: "world", headline: check.headline, tally: check.tally?.combined });
   return json({ hello: "world" });
 }

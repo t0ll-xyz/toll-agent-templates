@@ -67,7 +67,7 @@ export async function handle(req, env, deps = {}) {
     const addrs = await (deps.lookup ?? ((h) => dnsLookup(h, { all: true })))(target.hostname);
     if (!addrs.length || addrs.some((a) => isPrivateAddress(a.address))) throw new Error("private");
   } catch {
-    return json({ error: "The upstream host could not be reached safely. Nothing was charged.", code: "upstream" }, 502);
+    return json({ error: "The upstream host resolves to a private address. Nothing was charged.", code: "upstream" }, 502);
   }
 
   const headers = {};

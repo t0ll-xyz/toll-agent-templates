@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createApp } from "../app.mjs";
-import { PAY_TO, jsonRes, stub, paid, unpaid, commonTests, run, freePort, captureLogs, waitFor } from "./kit.mjs";
+import { PAY_TO, jsonRes, stub, paid, unpaid, commonTests, run, captureLogs } from "./kit.mjs";
 
 const dir = new URL("../", import.meta.url);
 const KEY = "sk-test-NOT-A-REAL-KEY-1234567890";
@@ -13,7 +13,7 @@ const REPLY = { id: "c1", choices: [{ message: { role: "assistant", content: "hi
 commonTests({ test, assert, dir, env: { MODEL_API_KEY: KEY }, price: "0.001", atomic: "1000", sells: "POST /chat", unpaidUrl: "/chat", unpaidInit: post({ messages: [] }) });
 
 test("it does not start without MODEL_API_KEY, and says what to set", async () => {
-  const s = run(dir, { PAY_TO, PORT: freePort() });
+  const s = run(dir, { PAY_TO, PORT: "0" });
   assert.notEqual(await s.exited, 0);
   assert.match(s.err(), /MODEL_API_KEY/);
   assert.doesNotMatch(s.err(), new RegExp(KEY));
@@ -79,10 +79,9 @@ test("the key never appears in a response body, a header or a log line, even whe
 });
 
 test("the running server never prints the key", async () => {
-  const port = freePort();
-  const s = run(dir, { PAY_TO, MODEL_API_KEY: KEY, PORT: port });
+  const s = run(dir, { PAY_TO, MODEL_API_KEY: KEY, PORT: "0" });
   try {
-    await waitFor(() => s.out().includes(port) || s.err().length > 0);
+    const port = await s.boundPort();
     await fetch(`http://127.0.0.1:${port}/chat`, post({ messages: [] }));
     assert.doesNotMatch(s.out() + s.err(), new RegExp(KEY));
   } finally { await s.stop(); }

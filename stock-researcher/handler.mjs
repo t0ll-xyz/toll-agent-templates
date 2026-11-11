@@ -64,7 +64,7 @@ export async function handle(req, env, deps = {}) {
   names.forEach((n, i) => { brief[n] = got[i].data ?? null; });
   if (names.every((n) => brief[n] === null)) return json({ error: "Toll could not be read for this ticker. Nothing was charged.", code: "upstream" }, 502);
 
-  const cik = brief.stock?.cik ?? brief.stock?.CIK ?? null;
+  const cik = brief.stock?.company?.cik ?? brief.fundamentals?.cik ?? null;
   brief.filings = cik ? await secFilings(cik, env, deps) : null;
   const notRead = [...names, "filings"].filter((n) => brief[n] === null);
   const { ticker: t, stock, fundamentals, insiders, filings } = brief;

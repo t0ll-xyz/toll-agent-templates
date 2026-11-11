@@ -7,7 +7,7 @@ const EXAMPLE = "0x0000000000000000000000000000000000000000";
 export function createApp(env = process.env, deps = {}) {
   return makeApp({
     sells: "GET /check/:token",
-    description: "A coin check on Robinhood Chain: a verdict word, the tallies and the reasons, read from Toll's check",
+    description: "A coin check on Robinhood Chain: a verdict word, the tallies and the flags, read from Toll's check",
     defaultPrice: "0.01",
     methods: ["GET"],
     match: (p) => p.startsWith("/check/"),
@@ -18,7 +18,7 @@ export function createApp(env = process.env, deps = {}) {
     bazaar: {
       serviceName: "Coin check",
       tags: ["robinhood-chain", "coin-check", "toll"],
-      output: { example: { source: "toll", token: EXAMPLE, verdict: "careful", tally: { against: 0, careful: 1, clear: 6 }, link: "https://t0ll.xyz/check/" + EXAMPLE } },
+      output: { example: { token: EXAMPLE, name: "Example", sym: "EXM", verdict: "CAREFUL", headline: "one flag worth a look", tally: { launch: { against: 0, careful: 1, clear: 3 }, now: { against: 0, careful: 0, clear: 3 }, combined: { against: 0, careful: 1, clear: 6 } }, flags: [{ text: "liquidity can be pulled", when: "now" }], unread: [], link: "https://t0ll.xyz/check/" + EXAMPLE, source: "toll" } },
     },
     handle,
   }, env, deps);

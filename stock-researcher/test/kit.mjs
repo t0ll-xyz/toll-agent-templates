@@ -67,7 +67,9 @@ export function run(dir, env) {
   child.stdout.on("data", (d) => { out += String(d); });
   child.stderr.on("data", (d) => { err += String(d); });
   const exited = new Promise((r) => child.on("exit", (c) => r(c)));
-  return { child, exited, out: () => out, err: () => err, stop: async () => { child.kill(); await exited; } };
+  // PORT=0 lets the OS pick a free port; the server prints the one it bound, read back here
+  const boundPort = async () => { await waitFor(() => /localhost:(\d+)/.test(out) || err.length > 0); const m = /localhost:(\d+)/.exec(out); if (!m) throw new Error(`server did not start: ${err}`); return m[1]; };
+  return { child, exited, out: () => out, err: () => err, boundPort, stop: async () => { child.kill(); await exited; } };
 }
 
 export async function waitFor(f, ms = 8000) {
@@ -77,8 +79,6 @@ export async function waitFor(f, ms = 8000) {
     await new Promise((r) => setTimeout(r, 40));
   }
 }
-
-export const freePort = () => String(38_000 + Math.floor(Math.random() * 2000));
 
 /** capture everything written to the console while `f` runs */
 export async function captureLogs(f) {
@@ -95,22 +95,21 @@ export async function captureLogs(f) {
 /** the tests every template shares: it refuses to start without PAY_TO, a 402 names chain, USDG, PAY_TO and the price, GET / is free */
 export function commonTests({ test, assert, dir, env, price, atomic, sells, unpaidUrl, unpaidInit }) {
   test("it does not start without PAY_TO, and says what to set", async () => {
-    const s = run(dir, { ...env, PAY_TO: "", PORT: freePort() });
+    const s = run(dir, { ...env, PAY_TO: "", PORT: "0" });
     assert.notEqual(await s.exited, 0);
     assert.match(s.err(), /PAY_TO/);
   });
 
   test("it does not start with a PAY_TO that is not an address", async () => {
-    const s = run(dir, { ...env, PAY_TO: "0x1234", PORT: freePort() });
+    const s = run(dir, { ...env, PAY_TO: "0x1234", PORT: "0" });
     assert.notEqual(await s.exited, 0);
     assert.match(s.err(), /PAY_TO/);
   });
 
   test("an unpaid request gets a 402 naming eip155:4663, USDG, PAY_TO and the price; GET / is free", async () => {
-    const port = freePort();
-    const s = run(dir, { ...env, PAY_TO, PORT: port });
+    const s = run(dir, { ...env, PAY_TO, PORT: "0" });
     try {
-      await waitFor(() => s.out().includes(port) || s.err().length > 0);
+      const port = await s.boundPort();
       assert.equal(s.err(), "");
       const res = await fetch(`http://127.0.0.1:${port}${unpaidUrl}`, unpaidInit);
       assert.equal(res.status, 402);

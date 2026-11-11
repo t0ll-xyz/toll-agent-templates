@@ -1,4 +1,4 @@
-import { makeApp } from "./seller.mjs";
+import { makeApp, json } from "./seller.mjs";
 import { handle, upstreamOf, authHeaderOf } from "./handler.mjs";
 
 export function createApp(env = process.env, deps = {}) {
@@ -9,6 +9,8 @@ export function createApp(env = process.env, deps = {}) {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     match: (p) => p.startsWith("/call/") && p.length > "/call/".length,
     maxBody: 1_000_000,
+    // an encoded slash or backslash could climb above the upstream's base path on a server that decodes before routing: a 400 before payment
+    precheck: (req, url) => (/%2f|%5c/i.test(url.pathname.slice("/call/".length)) ? json({ error: "The path may not contain an encoded slash or backslash." }, 400) : null),
     check: (e) => { upstreamOf(e); authHeaderOf(e); },
     bazaar: {
       serviceName: "Wrapped API",

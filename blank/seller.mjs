@@ -109,8 +109,9 @@ export async function serve(create, env = process.env) {
     console.error(e instanceof Error ? e.message : String(e));
     process.exit(1);
   }
-  createServer(nodeListener(app)).listen(app.port, () =>
-    console.log(`Selling ${app.info.sells} on http://localhost:${app.port} (${app.info.price} USDG a call, paid to ${app.info.payTo})`));
+  const server = createServer(nodeListener(app));
+  server.listen(app.port, () =>
+    console.log(`Selling ${app.info.sells} on http://localhost:${server.address().port} (${app.info.price} USDG a call, paid to ${app.info.payTo})`));
 }
 
 /** Replace every secret in a text (the upstream may echo what it was sent). */

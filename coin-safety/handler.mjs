@@ -4,8 +4,6 @@ import { json, payOf } from "./seller.mjs";
 
 const TOLL = "https://t0ll.xyz";
 const QUOTA = { error: "Toll's free quota is reached. Set TOLL_PAYER_KEY to keep answering.", code: "quota" };
-// the fields of Toll's answer that are passed on
-const PASS = ["token", "verdict", "tally", "reasons", "flags", "findings", "link"];
 
 export async function handle(req, env, deps = {}) {
   const token = new URL(req.url).pathname.slice("/check/".length).toLowerCase();
@@ -30,10 +28,15 @@ export async function handle(req, env, deps = {}) {
 
   let body;
   try { body = await res.json(); } catch { body = null; }
-  if (!body || typeof body !== "object" || body.verdict == null) {
-    return json({ error: "Toll's answer had no verdict yet (the coin may still be read). Try again shortly. Nothing was charged.", code: "pending" }, 502);
+  const combined = body?.tally?.combined;
+  if (!body || !Array.isArray(body.flags) || !combined || typeof combined !== "object") {
+    return json({ error: "Toll's answer is not ready yet (the coin may still be read). Try again shortly. Nothing was charged.", code: "pending" }, 502);
   }
-  const out = { source: "toll" };
-  for (const k of PASS) if (body[k] !== undefined) out[k] = body[k];
-  return json(out);
+  const unread = Array.isArray(body.unread) ? body.unread : [];
+  // Toll's own rule for the word, on the combined tally
+  const verdict = combined.against > 0 ? "AGAINST" : unread.length ? "INCOMPLETE" : combined.careful > 0 ? "CAREFUL" : "CLEAR";
+  return json({
+    token, name: body.name ?? null, sym: body.sym ?? null, verdict, headline: body.headline ?? null,
+    tally: body.tally, flags: body.flags, unread, link: `https://t0ll.xyz/check/${token}`, source: "toll",
+  });
 }

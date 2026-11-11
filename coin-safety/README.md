@@ -36,15 +36,20 @@ PAY_TO=0xYourWallet npm start
    never settled, so the buyer is not charged.
 
 The payer is built only when the key is set, and the key is used for nothing else. It is never logged or returned. Use a
-throwaway wallet and keep only a few cents in it. Toll never sees your keys.
+throwaway wallet and keep only a few cents in it. Toll never sees your wallet key or your payer key.
 
 ## What a caller gets
 
 ```json
-{ "source": "toll", "token": "0x...", "verdict": "careful", "tally": { "against": 0, "careful": 2, "clear": 5 }, "flags": [], "link": "https://t0ll.xyz/check/0x..." }
+{ "token": "0x...", "name": "Example", "sym": "EXM", "verdict": "CAREFUL", "headline": "one flag worth a look",
+  "tally": { "launch": { "against": 0, "careful": 1, "clear": 3 }, "now": { "against": 0, "careful": 0, "clear": 3 }, "combined": { "against": 0, "careful": 1, "clear": 6 } },
+  "flags": [{ "text": "liquidity can be pulled", "when": "now" }], "unread": [], "link": "https://t0ll.xyz/check/0x...", "source": "toll" }
 ```
 
-The fields are Toll's own, passed on as they come. `source` is always `"toll"`.
+`name`, `sym`, `headline`, `tally`, `flags` and `unread` are Toll's own, passed on as they come (`null` when Toll sends none). The
+`verdict` word is worked out from `tally.combined` with Toll's rule: `AGAINST` if any finding is against, else `INCOMPLETE` if
+something could not be read (`unread` is not empty), else `CAREFUL` if any finding says careful, else `CLEAR`. `source` is always
+`"toll"`. If Toll has not finished reading the coin, the answer is `502` with `code: "pending"` and the buyer is not charged.
 
 ## Deploy
 

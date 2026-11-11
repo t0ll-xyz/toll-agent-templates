@@ -30,7 +30,7 @@ you answer below 400, so an error you return is never charged. `req` is a web `R
 `deps.fetch` is `fetch` (tests replace it). Edit `description` and the `bazaar` example in `app.mjs` so the facilitator lists
 what you really sell.
 
-`handler.mjs` has two commented lines that call Toll's free coin check. Uncomment them to add a verdict to your answer.
+`handler.mjs` has two commented code lines that call Toll's free coin check. Uncomment them to add Toll's headline and tally to your answer.
 
 ## Where it calls Toll
 

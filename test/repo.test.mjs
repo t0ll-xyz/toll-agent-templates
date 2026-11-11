@@ -61,6 +61,8 @@ test("no file names the launcher, a private key or an address that is not on the
     assert.doesNotMatch(text, banned, where);
     assert.doesNotMatch(text, /0x[0-9a-fA-F]{64}(?![0-9a-fA-F])/, `${where} has a 64-hex value (a key?)`);
     for (const m of text.matchAll(/0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g)) assert.ok(allowed.has(m[0].toLowerCase()), `${where}: ${m[0]}`);
-    assert.doesNotMatch(text, /\b(safe|guarantee[sd]?|protects?|enforces?)\b/i, `${where} uses a word we do not use`);
+    // the two template names are allowed; everywhere else these words are not used
+    const words = text.replaceAll("coin-safety", "").replaceAll("Coin safety checker", "");
+    assert.doesNotMatch(words, /\b(safe|safely|safety|guarantee[sd]?|protects?|enforces?)\b/i, `${where} uses a word we do not use`);
   }
 });
