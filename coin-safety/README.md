@@ -1,7 +1,7 @@
 # coin-safety
 
 A paid coin check. A caller (usually another agent, about to buy a coin) pays and gets Toll's answer for that coin:
-the verdict word, the tallies, the reasons and the link to the full page.
+the verdict word first, one line that sums it up, the findings that are not good news and the link to the full page.
 
 - Sells: `GET /check/:token` where `:token` is `0x` + 40 hex. Anything else is a `400` before payment is asked.
 - Default price: **0.01 USDG** a call. Set `PRICE` to change it.
@@ -41,15 +41,25 @@ throwaway wallet and keep only a few cents in it. Toll never sees your wallet ke
 ## What a caller gets
 
 ```json
-{ "token": "0x...", "name": "Example", "sym": "EXM", "verdict": "CAREFUL", "headline": "one flag worth a look",
-  "tally": { "launch": { "against": 0, "careful": 1, "clear": 3 }, "now": { "against": 0, "careful": 0, "clear": 3 }, "combined": { "against": 0, "careful": 1, "clear": 6 } },
-  "flags": [{ "text": "liquidity can be pulled", "when": "now" }], "unread": [], "link": "https://t0ll.xyz/check/0x...", "source": "toll" }
+{ "token": "0x...", "name": "Example", "sym": "EXM", "verdict": "CAREFUL",
+  "summary": "CAREFUL: nothing against, some things to be careful about. 0 findings against, 1 to be careful about, 6 clear.",
+  "headline": "one flag worth a look",
+  "counts": { "against": 0, "careful": 1, "clear": 6 },
+  "concerns": ["liquidity can be pulled"], "notes": [], "clear": 6,
+  "unread": [], "link": "https://t0ll.xyz/check/0x...", "source": "toll",
+  "more": "add ?full=1 for Toll's tallies and every flag, under raw" }
 ```
 
-`name`, `sym`, `headline`, `tally`, `flags` and `unread` are Toll's own, passed on as they come (`null` when Toll sends none). The
-`verdict` word is worked out from `tally.combined` with Toll's rule: `AGAINST` if any finding is against, else `INCOMPLETE` if
-something could not be read (`unread` is not empty), else `CAREFUL` if any finding says careful, else `CLEAR`. `source` is always
-`"toll"`. If Toll has not finished reading the coin, the answer is `502` with `code: "pending"` and the buyer is not charged.
+The verdict comes first. The `verdict` word is worked out from Toll's combined tally with Toll's rule: `AGAINST` if any
+finding is against, else `INCOMPLETE` if something could not be read (`unread` is not empty), else `CAREFUL` if any finding
+says careful, else `CLEAR`. `summary` says the same in one line. `counts` is Toll's combined tally. `concerns` and `notes`
+are the texts of Toll's flags that are not good news (a plain flag is a concern, a flag Toll marks `note` is a note), at most
+8 of each; `clear` is how many flags are good news. `name`, `sym`, `headline` and `unread` are Toll's own (`null` when Toll
+sends none). `source` is always `"toll"`.
+
+`GET /check/0x...?full=1` adds `raw`: Toll's three tallies (launch, now, combined) and every flag as Toll sent it.
+
+If Toll has not finished reading the coin, the answer is `502` with `code: "pending"` and the buyer is not charged.
 
 ## Deploy
 

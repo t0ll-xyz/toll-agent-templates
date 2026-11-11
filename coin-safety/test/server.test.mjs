@@ -35,16 +35,24 @@ test("a token that is not 0x + 40 hex is a 400 before payment is asked", async (
   assert.equal(s.calls.length, 0);
 });
 
-test("a paid call asks Toll's free check first and answers exactly the agreed fields", async () => {
+test("a paid call asks Toll's free check first and answers the verdict facts first, exactly these fields", async () => {
   const s = toll(answer());
   const res = await paid(createApp(env, { fetch: s.fetch }), URL_OF(TOKEN));
   assert.equal(res.status, 200);
-  const body = await res.json();
+  assert.equal(res.headers.get("access-control-allow-origin"), "*", "a browser buyer can read the paid answer");
+  const text = await res.text();
+  const body = JSON.parse(text);
   assert.deepEqual(body, {
-    token: TOKEN, name: "Test Coin", sym: "TST", verdict: "CAREFUL", headline: "one flag worth a look",
-    tally: answer().tally, flags: answer().flags, unread: [], link: LINK, source: "toll",
+    token: TOKEN, name: "Test Coin", sym: "TST", verdict: "CAREFUL",
+    summary: "CAREFUL: nothing against, some things to be careful about. 0 findings against, 2 to be careful about, 5 clear.",
+    headline: "one flag worth a look",
+    counts: { against: 0, careful: 2, clear: 5 },
+    concerns: ["liquidity can be pulled"], notes: ["young pool"], clear: 1,
+    unread: [], link: LINK, source: "toll", more: "add ?full=1 for Toll's tallies and every flag, under raw",
   });
-  for (const leaked of ["pools", "market", "quota", "dev", "watch", "reasons", "findings"]) assert.equal(leaked in body, false, leaked);
+  assert.deepEqual(Object.keys(body).slice(0, 5), ["token", "name", "sym", "verdict", "summary"], "the verdict comes first");
+  for (const leaked of ["pools", "market", "quota", "dev", "watch", "reasons", "findings", "tally", "flags", "raw"]) assert.equal(leaked in body, false, leaked);
+  assert.ok(text.length < 900, `the answer is ${text.length} bytes`);
   assert.deepEqual(s.calls.map((c) => c.url), [`https://t0ll.xyz/api/check?addr=${TOKEN}`]);
   assert.equal(s.calls[0].headers["x-api-key"], undefined, "no key header without TOLL_KEY");
   assert.ok(res.headers.get("payment-response"), "the payment settled");
@@ -141,4 +149,36 @@ test("AGENT_ID is passed as agentId in the 402", async () => {
 test("PRICE overrides the default", async () => {
   const { v2 } = await unpaid(createApp({ ...env, PRICE: "0.02" }, {}), URL_OF(TOKEN));
   assert.equal(v2.accepts[0].amount, "20000");
+});
+
+test("?full=1 adds Toll's tallies and every flag under raw, and nothing else of Toll's answer", async () => {
+  const res = await paid(createApp(env, { fetch: toll(answer()).fetch }), URL_OF(TOKEN) + "?full=1");
+  const body = await res.json();
+  assert.equal(body.verdict, "CAREFUL");
+  assert.deepEqual(body.raw, { tally: answer().tally, flags: answer().flags });
+  assert.equal(body.more, undefined);
+  for (const leaked of ["pools", "market", "quota", "dev", "watch"]) assert.equal(leaked in body.raw, false, leaked);
+  const short = await (await paid(createApp(env, { fetch: toll(answer()).fetch }), URL_OF(TOKEN) + "?full=yes")).json();
+  assert.equal("raw" in short, false);
+});
+
+test("the summary says the word, the counts and what was not read", async () => {
+  const say = async (over) => (await (await paid(createApp(env, { fetch: toll(answer(over)).fetch }), URL_OF(TOKEN))).json()).summary;
+  assert.equal(await say({ tally: { combined: t3(1, 5, 0) } }), "AGAINST: at least one finding is against this coin. 1 finding against, 5 to be careful about, 0 clear.");
+  assert.equal(await say({ tally: { combined: t3(0, 0, 7) }, unread: ["funder", "liquidity"] }),
+    "INCOMPLETE: nothing against, but part of the check was not read. 0 findings against, 0 to be careful about, 7 clear; 2 parts not read (funder, liquidity).");
+  assert.equal(await say({ tally: { combined: t3(0, 0, 7) }, unread: ["funder"] }),
+    "INCOMPLETE: nothing against, but part of the check was not read. 0 findings against, 0 to be careful about, 7 clear; 1 part not read (funder).");
+  assert.equal(await say({ tally: { combined: t3(0, 0, 7) } }), "CLEAR: nothing against and nothing to be careful about. 0 findings against, 0 to be careful about, 7 clear.");
+});
+
+test("at most 8 concerns and 8 notes are shown, and the answer says it was cut; odd flags never break it", async () => {
+  const many = [...Array.from({ length: 12 }, (_, i) => ({ text: `concern ${i}`, when: "now" })), ...Array.from({ length: 3 }, (_, i) => ({ text: `note ${i}`, note: true })),
+    { good: true, text: "fine" }, null, { when: "now" }, "x", { text: 5 }];
+  const body = await (await paid(createApp(env, { fetch: toll(answer({ flags: many })).fetch }), URL_OF(TOKEN))).json();
+  assert.equal(body.concerns.length, 8);
+  assert.equal(body.concerns[0], "concern 0");
+  assert.deepEqual(body.notes, ["note 0", "note 1", "note 2"]);
+  assert.equal(body.clear, 1);
+  assert.match(body.cut, /first 8/);
 });

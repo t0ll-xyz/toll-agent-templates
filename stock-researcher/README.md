@@ -1,7 +1,8 @@
 # stock-researcher
 
-A paid brief on a stock token. One call returns the price and basics, the fundamentals, the insider trades and the latest
-SEC filings for a ticker, as one JSON answer.
+A paid brief on a stock token. One call returns a short answer a person or an agent can read at once: the name, the chain
+price against the Chainlink reference (with the gap), the latest 3 SEC filings with links, insider buys and sells, and
+earnings. `?full=1` adds every field that was read.
 
 - Sells: `GET /brief/:ticker`, where `:ticker` is 1 to 6 letters or dots (`AAPL`, `BRK.B`). Anything else is a `400` before
   payment is asked.
@@ -52,11 +53,31 @@ never sees your keys.
 ## What a caller gets
 
 ```json
-{ "ticker": "AAPL", "stock": {}, "fundamentals": {}, "insiders": {}, "filings": { "cik": "320193", "name": "Apple Inc.", "recent": [] } }
+{
+  "ticker": "NVDA", "name": "NVIDIA",
+  "brief": "NVDA · NVIDIA. chain $174.71 vs reference $174.67 (+0.02%). latest filings: 8-K 2026-09-03, 10-Q 2026-08-26, 8-K 2026-08-26. insiders 90d: 0 buys, 25 sells ($967.6M). next earnings not known (last results 10-Q 2026-08-26).",
+  "price": { "chain_usd": 174.71, "reference_usd": 174.67, "gap_pct": 0.02, "reference_source": "Chainlink feed on Robinhood Chain", "session": "post",
+             "deepest_pool": { "venue": "v3", "quote": "USDG", "depth_usd": 2197067 } },
+  "filings": [{ "form": "8-K", "date": "2026-09-03", "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000078/nvda-20260902.htm" }],
+  "insiders": { "window_days": 90, "buys": { "count": 0, "shares": 0, "value_usd": null }, "sells": { "count": 25, "shares": 4332118, "value_usd": 967599313 }, "sells_on_a_plan": 9 },
+  "earnings": { "next": null, "last_report": { "form": "10-Q", "filed": "2026-08-26", "period_end": "2026-07-26", "url": "https://www.sec.gov/..." } },
+  "basics": { "period": "TTM to 2026-07-26", "revenue_usd": 302969000000, "net_income_usd": 192879000000, "eps_diluted": 7.94, "pe": 21.98, "market_cap_usd": 4206293499884 },
+  "page": "https://t0ll.xyz/markets/NVDA", "source": "toll markets + SEC EDGAR",
+  "more": "add ?full=1 for every field that was read, under raw"
+}
 ```
 
-A part that could not be read is `null`, and `notRead` names it (`"notRead": ["insiders"]`). If nothing could be read at all,
-the answer is `502` and the buyer is not charged.
+- `brief` is the same facts as one line, ready to show.
+- `price.gap_pct` is the chain price against the reference, in percent (Toll's own figure, or worked out from the two
+  prices when Toll gives none).
+- `filings` are the latest 3 from SEC's list; if SEC could not be read, the ones inside Toll's stock answer.
+- `earnings.next` is a date only when Toll's answer carries one. Otherwise it is `null` and the last results filing is
+  named. The template never guesses a date.
+- `GET /brief/NVDA?full=1` gives the same brief plus `raw`: Toll's whole stock, fundamentals and insiders answers and
+  SEC's filing list (every pool, every insider row).
+
+A part that could not be read is `null`, and `notRead` names it (`"notRead": ["insiders"]`); it is never shown as a zero.
+If nothing could be read at all, the answer is `502` and the buyer is not charged.
 
 ## Deploy
 
