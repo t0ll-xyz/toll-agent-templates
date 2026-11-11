@@ -26,6 +26,34 @@ const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 export { json };
 
+// BROWSER BUYERS. A page on another site can only read a 402, send the payment header and read the answer when the
+// seller says so: every answer carries access-control-allow-origin: * and exposes the payment headers, and the
+// browser's preflight (OPTIONS) is answered here, before anything is priced or paid.
+export const EXPOSED = "PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-PAYMENT-RESPONSE";
+const PAY_HEADERS = "content-type, payment-signature, x-payment, authorization";
+const HEADER_NAMES = /^[\w-]+(\s*,\s*[\w-]+)*$/;
+
+/** the same answer with the CORS headers a browser buyer needs (a header the answer already set is kept) */
+export function withCors(res) {
+  const headers = new Headers(res.headers);
+  headers.set("access-control-allow-origin", "*");
+  if (!headers.has("access-control-expose-headers")) headers.set("access-control-expose-headers", EXPOSED);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
+/** the answer to a browser's preflight: any origin, the template's methods, the payment headers (plus the ones asked for) */
+export function preflight(req, methods) {
+  const asked = (req.headers.get("access-control-request-headers") ?? "").trim();
+  return new Response(null, { status: 204, headers: {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": [...new Set([...methods, "OPTIONS"])].join(", "),
+    "access-control-allow-headers": asked && HEADER_NAMES.test(asked) && asked.length <= 400 ? `${PAY_HEADERS}, ${asked.toLowerCase()}` : PAY_HEADERS,
+    "access-control-expose-headers": EXPOSED,
+    "access-control-max-age": "86400",
+    "cache-control": "no-store",
+  } });
+}
+
 /**
  * Build the fetch handler `(Request) => Response` of one template.
  * spec: { sells, description, methods, match(pathname), precheck?(req, url), maxBody?, bazaar, defaultPrice, check?(env), handle(req, env, deps) }
@@ -45,7 +73,7 @@ export function makeApp(spec, env = process.env, deps = {}) {
     bazaar: { description: spec.description, method: spec.methods[0], ...spec.bazaar },
   };
   const paid = paywall(options, (req) => spec.handle(req, env, deps));
-  const app = async (req) => {
+  const inner = async (req) => {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return json(info);
     if (!spec.match(url.pathname)) return json({ error: "Not found. See GET / for what this agent sells." }, 404);
@@ -62,6 +90,7 @@ export function makeApp(spec, env = process.env, deps = {}) {
     }
     return paid(req);
   };
+  const app = async (req) => (req.method === "OPTIONS" ? preflight(req, spec.methods) : withCors(await inner(req)));
   app.port = base.port;
   app.info = info;
   return app;
@@ -81,7 +110,7 @@ export function nodeListener(app) {
         for await (const c of req) {
           size += c.length;
           if (size > ADAPTER_MAX_BODY) {
-            res.writeHead(413, { "content-type": "application/json" });
+            res.writeHead(413, { "content-type": "application/json", "access-control-allow-origin": "*" });
             res.end(JSON.stringify({ error: "Body too large." }));
             return;
           }
@@ -93,7 +122,7 @@ export function nodeListener(app) {
       res.writeHead(answer.status, Object.fromEntries(answer.headers));
       res.end(Buffer.from(await answer.arrayBuffer()));
     } catch {
-      if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
+      if (!res.headersSent) res.writeHead(500, { "content-type": "application/json", "access-control-allow-origin": "*" });
       res.end(JSON.stringify({ error: "The agent hit an error. Nothing was charged." }));
     }
   };

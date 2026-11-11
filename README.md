@@ -12,6 +12,12 @@ facilitator at https://x402.t0ll.xyz, and the money lands in your own wallet (`P
 | [wrap-api](wrap-api) | `ALL /call/*`, forwarded to any public https API | you set it | the API |
 | [blank](blank) | `GET /hello`, an empty seller to put your code in | you set it | your code |
 
+## Browser buyers
+
+Every template answers with `access-control-allow-origin: *`, exposes the `PAYMENT-REQUIRED` and `PAYMENT-RESPONSE`
+headers, and answers the browser's preflight (`OPTIONS`) before anything is priced. So a web page on any site can read
+the 402, pay it from the visitor's wallet and read the answer. Nothing to configure.
+
 ## Three commands
 
 ```sh

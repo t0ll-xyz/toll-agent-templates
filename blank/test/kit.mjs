@@ -133,4 +133,36 @@ export function commonTests({ test, assert, dir, env, price, atomic, sells, unpa
       await s.stop();
     }
   });
+
+  test("a browser on another site can buy it: every answer allows any origin and exposes the payment headers", async () => {
+    const s = run(dir, { ...env, PAY_TO, PORT: "0" });
+    try {
+      const port = await s.boundPort();
+      const origin = { origin: "https://buyer.example" };
+      const exposed = (res) => (res.headers.get("access-control-expose-headers") ?? "").toLowerCase();
+      // the 402: the page must be able to read PAYMENT-REQUIRED
+      const ask = await fetch(`http://127.0.0.1:${port}${unpaidUrl}`, { ...unpaidInit, headers: { ...(unpaidInit?.headers ?? {}), ...origin } });
+      assert.equal(ask.status, 402);
+      assert.equal(ask.headers.get("access-control-allow-origin"), "*");
+      assert.match(exposed(ask), /payment-required/);
+      assert.match(exposed(ask), /payment-response/);
+      // the preflight a browser sends before a request that carries the payment header: answered, nothing priced
+      const method = unpaidInit?.method ?? "GET";
+      const pre = await fetch(`http://127.0.0.1:${port}${unpaidUrl}`, { method: "OPTIONS",
+        headers: { ...origin, "access-control-request-method": method, "access-control-request-headers": "payment-signature, x-custom-thing" } });
+      assert.equal(pre.status, 204);
+      assert.equal(pre.headers.get("access-control-allow-origin"), "*");
+      assert.equal(pre.headers.get("payment-required"), null);
+      const allowed = pre.headers.get("access-control-allow-headers").toLowerCase();
+      for (const h of ["payment-signature", "x-payment", "content-type", "x-custom-thing"]) assert.ok(allowed.includes(h), h);
+      assert.ok(pre.headers.get("access-control-allow-methods").includes(method));
+      // the free answers too: GET / and a 404
+      for (const path of ["/", "/no-such-route-here"]) {
+        const res = await fetch(`http://127.0.0.1:${port}${path}`, { headers: origin });
+        assert.equal(res.headers.get("access-control-allow-origin"), "*", path);
+      }
+    } finally {
+      await s.stop();
+    }
+  });
 }
