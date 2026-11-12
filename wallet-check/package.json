@@ -1,0 +1,18 @@
+{
+  "name": "wallet-check",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A paid wallet check: sells GET /wallet/:address for USDG over x402 on Robinhood Chain. It answers a wallet's live token approvals and its record as a coin deployer, from Toll.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.mjs"
+  },
+  "dependencies": {
+    "@tollxyz/x402-seller": "^0.3.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

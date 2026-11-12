@@ -20,11 +20,17 @@ const ENV = {
   "model-router": ["PAY_TO", "AGENT_ID", "PRICE", "PORT", "MODEL_BASE_URL", "MODEL_API_KEY", "MODEL"],
   "wrap-api": ["PAY_TO", "AGENT_ID", "PRICE", "PORT", "UPSTREAM_URL", "UPSTREAM_AUTH_HEADER"],
   blank: ["PAY_TO", "AGENT_ID", "PRICE", "PORT"],
+  "page-reader": ["PAY_TO", "AGENT_ID", "PRICE", "PORT"],
+  "agent-trust": ["PAY_TO", "AGENT_ID", "PRICE", "PORT"],
+  "llm-task": ["PAY_TO", "AGENT_ID", "PRICE", "PORT", "MODEL_BASE_URL", "MODEL_API_KEY", "MODEL"],
+  "wallet-check": ["PAY_TO", "AGENT_ID", "PRICE", "PORT"],
+  "launch-feed": ["PAY_TO", "AGENT_ID", "PRICE", "PORT"],
+  "tx-guard": ["PAY_TO", "AGENT_ID", "PRICE", "PORT", "TOLL_PAYER_KEY"],
 };
 
 test("each template has its files and its .env.example names exactly its env vars, in order", () => {
   for (const t of TEMPLATES) {
-    for (const f of ["server.mjs", "app.mjs", "handler.mjs", "seller.mjs", "package.json", ".env.example", "vercel.json", "README.md", "api/index.mjs", "test/server.test.mjs"]) {
+    for (const f of ["server.mjs", "app.mjs", "handler.mjs", "seller.mjs", "package.json", ".env.example", "vercel.json", "railway.json", "README.md", "api/index.mjs", "test/server.test.mjs"]) {
       assert.ok(existsSync(join(root, t, f)), `${t}/${f}`);
     }
     const names = readFileSync(join(root, t, ".env.example"), "utf8").split("\n")

@@ -41,7 +41,15 @@ test("MODEL forces the model name; the default base URL is OpenAI's", async () =
 
 test("only POST /chat is sold, and a body that is not a JSON object is a 400 before payment", async () => {
   const app = createApp(env, { fetch: stub(() => undefined).fetch });
-  assert.equal((await app(new Request(CHAT))).status, 405);
+  // a plain GET answers the route's 402 (a directory or a probe reads a seller's terms with a GET), never the model
+  const terms = await app(new Request(CHAT));
+  assert.equal(terms.status, 402);
+  assert.equal((await terms.json()).accepts[0].payTo.toLowerCase(), PAY_TO);
+  // a GET that carries a payment is refused: nothing runs and nothing settles
+  const paidGet = await app(new Request(CHAT, { headers: { "payment-signature": "anything" } }));
+  assert.equal(paidGet.status, 405);
+  assert.equal(paidGet.headers.get("payment-response"), null);
+  assert.equal((await app(new Request(CHAT, { method: "PUT", body: "{}" }))).status, 405);
   assert.equal((await app(new Request("http://agent.test/other", post({})))).status, 404);
   assert.equal((await app(new Request(CHAT, post("not json")))).status, 400);
   assert.equal((await app(new Request(CHAT, post("[1]")))).status, 400);

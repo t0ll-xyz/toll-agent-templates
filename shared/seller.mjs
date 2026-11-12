@@ -77,7 +77,14 @@ export function makeApp(spec, env = process.env, deps = {}) {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return json(info);
     if (!spec.match(url.pathname)) return json({ error: "Not found. See GET / for what this agent sells." }, 404);
-    if (!spec.methods.includes(req.method)) return json({ error: `Use ${spec.methods.join(" or ")} here.` }, 405);
+    if (!spec.methods.includes(req.method)) {
+      // A PLAIN GET ON A PAID ROUTE THAT IS SOLD OVER ANOTHER METHOD ANSWERS THE 402 ITSELF. Directories, censuses and
+      // launch probes read a seller's terms with a GET; a 405 there made a POST-only seller look like no seller at all.
+      // Only when no payment is sent: a GET that carries a payment is still a 405, so nothing is ever run or settled.
+      const unpaidGet = req.method === "GET" && !req.headers.has("payment-signature") && !req.headers.has("x-payment");
+      if (unpaidGet) return paid(new Request(req.url, { method: "GET", headers: req.headers }));
+      return json({ error: `Use ${spec.methods.join(" or ")} here.` }, 405);
+    }
     if (spec.maxBody && req.method !== "GET" && req.method !== "HEAD") {
       const declared = Number(req.headers.get("content-length") ?? 0);
       if (declared > spec.maxBody) return json({ error: `Body too large (limit ${spec.maxBody} bytes).` }, 413);
@@ -141,6 +148,25 @@ export async function serve(create, env = process.env) {
   const server = createServer(nodeListener(app));
   server.listen(app.port, () =>
     console.log(`Selling ${app.info.sells} on http://localhost:${server.address().port} (${app.info.price} USDG a call, paid to ${app.info.payTo})`));
+}
+
+/**
+ * One free read of a Toll route, for a handler: { quota: true } when Toll says its free rate is used up (429), else
+ * { status, data } with data = the JSON body of a 2xx answer, or null (not 2xx, not JSON, not reached). Never throws.
+ */
+export async function tollGet(url, env, deps = {}) {
+  const get = deps.fetch ?? globalThis.fetch;
+  const headers = { accept: "application/json" };
+  const key = (env.TOLL_KEY ?? "").trim();
+  if (key) headers["x-api-key"] = key;
+  try {
+    const res = await get(url, { headers, signal: AbortSignal.timeout(20_000) });
+    if (res.status === 429) return { quota: true };
+    if (!res.ok) return { status: res.status, data: null };
+    try { return { status: res.status, data: await res.json() }; } catch { return { status: res.status, data: null }; }
+  } catch {
+    return { status: 0, data: null };
+  }
 }
 
 /** Replace every secret in a text (the upstream may echo what it was sent). */

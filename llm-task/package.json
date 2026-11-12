@@ -1,0 +1,18 @@
+{
+  "name": "llm-task",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A paid text task: sells POST /task for USDG over x402 on Robinhood Chain. It summarizes, translates or pulls the key points out of a text with the builder's own model key.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.mjs"
+  },
+  "dependencies": {
+    "@tollxyz/x402-seller": "^0.3.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

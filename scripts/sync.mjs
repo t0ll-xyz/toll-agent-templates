@@ -4,7 +4,8 @@ import { copyFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-export const TEMPLATES = ["coin-safety", "stock-researcher", "model-router", "wrap-api", "blank"];
+export const TEMPLATES = ["coin-safety", "stock-researcher", "model-router", "wrap-api", "blank",
+  "page-reader", "agent-trust", "llm-task", "wallet-check", "launch-feed", "tx-guard"];
 const root = fileURLToPath(new URL("../", import.meta.url));
 
 export const COPIES = TEMPLATES.flatMap((t) => [

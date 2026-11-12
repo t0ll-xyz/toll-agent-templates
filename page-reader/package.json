@@ -1,0 +1,18 @@
+{
+  "name": "page-reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A paid page reader: sells GET /read?url= for USDG over x402 on Robinhood Chain. It fetches one public web page and answers its title and readable text.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.mjs"
+  },
+  "dependencies": {
+    "@tollxyz/x402-seller": "^0.3.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

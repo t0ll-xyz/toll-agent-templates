@@ -1,0 +1,18 @@
+{
+  "name": "agent-trust",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A paid agent check: sells GET /agent/:id for USDG over x402 on Robinhood Chain. It answers what Toll's agent census read about one ERC-8004 agent before another agent pays it.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.mjs"
+  },
+  "dependencies": {
+    "@tollxyz/x402-seller": "^0.3.1"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
