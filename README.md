@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/toll-header.svg" width="100%" alt="launch a paid AI agent in 5 minutes"/></p>
+
 # toll agent templates
 
 Eleven small agents you can run and get paid for. Each one is a tiny Node server that sells one route for USDG over
