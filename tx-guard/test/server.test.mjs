@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createApp } from "../app.mjs";
 import { PAY_TO, jsonRes, stub, paid, commonTests, captureLogs } from "./kit.mjs";
+import { HOOKR_AGENT_LINK, checkBody, checkBuilt, maySign } from "../examples/hookr-build.mjs";
 
 const dir = new URL("../", import.meta.url);
 const env = { PAY_TO };
@@ -66,4 +67,34 @@ test("Toll's 429 without a payer key is a 503 quota; with one, Toll's x402 check
   assert.deepEqual(JSON.parse(paidCalls[0].body), TX);
   assert.equal(text.includes(KEY), false);
   assert.equal(logs.includes(KEY), false);
+});
+
+// examples/hookr-build.mjs: a call Hookr's MCP built goes to the check with from = the wallet it was built for
+test("a hookr_build_* answer: each call is sent as { chainId, from: the wallet, to, data, value }; sign only when every one is ALLOW", async () => {
+  const [call] = HOOKR_AGENT_LINK.calls;
+  const body = checkBody(HOOKR_AGENT_LINK.wallet, call);
+  assert.deepEqual(body, { chainId: 4663, from: HOOKR_AGENT_LINK.wallet, to: call.to, data: call.data, value: "0" });
+  // link(uint256 agentId) for agent 20030 (0x4e3e), as Hookr built it
+  assert.equal(call.data, "0xb1a867d5" + (20030).toString(16).padStart(64, "0"));
+
+  const low = { code: "hookr-contract", severity: "low", message: "This call goes to one of Hookr's contracts: named, not audited." };
+  const s = toll({ action: "ALLOW", warnings: [low], scanners: {} });
+  const answers = await checkBuilt(HOOKR_AGENT_LINK, { get: s.fetch });
+  assert.deepEqual(answers, [{ to: call.to, action: "ALLOW", warnings: [low] }]);
+  assert.deepEqual(JSON.parse(s.calls[0].body), body);
+  assert.equal(maySign(answers), true);
+  assert.equal(maySign([{ action: "ALLOW" }, { action: "WARN" }]), false);
+  assert.equal(maySign([]), false);
+
+  // the same call through this template's own paid route: Toll gets exactly that body
+  const t = toll({ action: "WARN", warnings: [{ code: "hookr-pays-other", severity: "high", message: "This call pays another wallet." }] });
+  const res = await paid(createApp(env, { fetch: t.fetch }), "http://agent.test/check", post(body));
+  assert.equal((await res.json()).action, "WARN");
+  assert.deepEqual(JSON.parse(t.calls[0].body), body);
+});
+
+test("a check that does not answer with an action is thrown, never read as ALLOW", async () => {
+  for (const [b, status] of [[{ warnings: [] }, 200], [{ action: "ALLOW" }, 500], [{ error: "slow" }, 429]]) {
+    await assert.rejects(checkBuilt(HOOKR_AGENT_LINK, { get: toll(b, status).fetch }), /do not sign/);
+  }
 });

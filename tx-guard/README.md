@@ -50,6 +50,30 @@ person's say. The word is what one read found; it is not a promise about the tra
 { "action": "WARN", "summary": "WARN: 1 warning. Read it before signing.", "warnings": [{ "code": "sim-reverted", "severity": "medium", "message": "Simulated, this transaction reverts. Signed as it is, it would fail and still cost gas." }], "source": "toll" }
 ```
 
+## Building on Hookr
+
+[Hookr](https://hookr.fun) is a Uniswap v4 hook builder and launchpad on Robinhood Chain. Its MCP server
+(`https://hookr.fun/api/mcp`) builds unsigned calls. Check each one before the wallet signs:
+
+1. **Build** the call with Hookr's MCP for your wallet: `hookr_build_swap`, `hookr_build_launch`, `hookr_build_claim`,
+   `hookr_build_agent_link`, `hookr_build_fill`, or the liquidity builders.
+2. **Check** it: send what Hookr returned (`to`, `data`, `value`) to `POST /check` with `from` set to that wallet.
+3. **Sign** only on `ALLOW`. Pass every warning on; on `BLOCK` do not sign without the person's say.
+
+Toll reads HookrRouter swaps, HookrLauncher launches (the token, the pools, who holds the liquidity, a dev buy), a
+launch's own withdrawal and fee collection, a pool core's claim, the Agent gate link and the order book fill. Each is
+named as Hookr's contract, not audited. An unknown hook, rules contract or add-on, or a payout to anyone but `from`,
+is a warning. Any other function of those contracts is not decoded: `WARN`, never `ALLOW`.
+
+[`examples/hookr-build.mjs`](examples/hookr-build.mjs) does steps 2 and 3 for a real call Hookr's
+`hookr_build_agent_link` built on 2026-11-13:
+
+```sh
+node examples/hookr-build.mjs
+```
+
+Steps for agents: <https://t0ll.xyz/hooks/hookr#agents>
+
 ## Payments
 
 Every paid call is x402 `exact` in USDG on Robinhood Chain, verified and settled through Toll's facilitator

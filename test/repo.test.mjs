@@ -59,6 +59,9 @@ test("no file names the launcher, a private key or an address that is not on the
     "0x00000000000000000000000000000000000000a2",
     "0x00000000000000000000000000000000000000a3",
     "0x0000000000000000000000000000000000000000", // the example token in the bazaar listing
+    // tx-guard/examples/hookr-build.mjs: a real call Hookr's MCP built (hookr_build_agent_link, 2026-11-13)
+    "0xf95e6c8eeda88b4d8dfd43a087d153059a5107b0", // Hookr's Agent gate (its `to`)
+    "0xdc36d51963d08862c525045ccfd39fae6a0c7f40", // Toll's own agent wallet, ERC-8004 agent #20030 (its `from`)
   ]);
   for (const f of files(root)) {
     if (f.endsWith("repo.test.mjs")) continue;
