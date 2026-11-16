@@ -139,7 +139,7 @@ test("the three templates with a payer take the guard as an optional package and
     const readme = readFileSync(join(root, t, "README.md"), "utf8");
     const handler = readFileSync(join(root, t, "handler.mjs"), "utf8");
     if (PAYS.includes(t)) {
-      assert.equal(pkg.optionalDependencies?.["@tollxyz/guard"], "^0.7.0", t);
+      assert.equal(pkg.optionalDependencies?.["@tollxyz/guard"], "^0.7.1", t);
       assert.match(handler, /payOf\(env, deps\)/, t);
       assert.match(handler, /guard(?:Answer|Stop)\(e\)/, `${t} answers what the guard stopped`);
       assert.match(readme, /\*\*Toll's guard is on\.\*\*[^]*`TOLL_GUARD=off`/, t);
