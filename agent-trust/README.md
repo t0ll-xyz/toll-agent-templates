@@ -32,6 +32,9 @@ Every call reads `GET https://t0ll.xyz/api/agent/<id>`. It is free, 30 reads a m
 `429` the agent answers `503` with `code: "quota"`; an agent Toll's census does not know answers `404`. A failed call is
 never settled, so the buyer is not charged. Toll earns the build fee only; nothing is taken out of a payment.
 
+**Toll's guard:** this template never signs and never pays, so there is nothing for the guard to check. If you add a
+payer, use `payOf` from `seller.mjs`: it goes through the guard, which is on unless `TOLL_GUARD=off`.
+
 ## The word
 
 - `MATCH`: the agent answers over x402 and is paid at its registered agent wallet.

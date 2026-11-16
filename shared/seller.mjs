@@ -1,6 +1,7 @@
 // Shared by every template (copied into each folder as seller.mjs by scripts/sync.mjs, so a folder works alone).
 // It reads and checks the environment, builds the options for @tollxyz/x402-seller, turns Node's http requests into
 // web Requests, and (lazily, only when TOLL_PAYER_KEY is set) builds the payer that pays Toll's x402 routes.
+// That payer is the only code in a template that signs or pays, and it goes through Toll's guard (see THE GUARD below).
 import { paywall } from "@tollxyz/x402-seller";
 
 export const FACILITATOR = "https://x402.t0ll.xyz";
@@ -179,30 +180,117 @@ export function redact(text, secrets) {
 const USDG_ASSET = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168";
 const payers = new Map();
 
+// THE GUARD (on unless TOLL_GUARD=off). Before TOLL_PAYER_KEY pays a 402, Toll's check (check_tx, through
+// @tollxyz/guard) reads what the 402 asks for: who gets paid against the seller's registered agent wallet, the amount
+// and the asset. It runs on the guard's strict preset:
+//   BLOCK      the payment is not made, and Toll's reasons come back
+//   WARN       the payment is not made either (strict stops on every WARN), and Toll's reasons come back
+//   not read   no answer inside the timeout, Toll not reached, or a request it would not read: the payment is not
+//              made and the answer says "NOT READ". A check that was not read is never passed on as clear.
+// Only an ALLOW is paid.
+/** how long the payer waits for Toll's check of one 402 */
+export const GUARD_TIMEOUT_MS = 5000;
+/** what is left out of that for the way to Toll and back */
+export const GUARD_ROUND_TRIP_MS = 1000;
+/** the time budget Toll's check is given (check_tx budgetMs): the timeout minus the round trip */
+export const GUARD_BUDGET_MS = GUARD_TIMEOUT_MS - GUARD_ROUND_TRIP_MS;
+const GUARD_SHOWN = 8;
+
+/** The one switch: the guard is on unless TOLL_GUARD is "off". */
+export const guardOn = (env) => (env?.TOLL_GUARD ?? "").trim().toLowerCase() !== "off";
+
+/** The options the guard runs with. deps.tollFetch is the fetch that reaches Toll's check (a test gives one). */
+export const guardOptions = (deps = {}) => ({
+  strict: true, timeoutMs: GUARD_TIMEOUT_MS, budgetMs: GUARD_BUDGET_MS, logger: false,
+  ...(deps.tollFetch ? { fetch: deps.tollFetch } : {}),
+});
+
+/**
+ * The fetch a payer may use: `inner` with Toll's check in front of every 402, or `inner` itself when TOLL_GUARD=off.
+ * With the guard on and @tollxyz/guard missing it throws: nothing is paid without the check.
+ */
+export async function guarded(inner, env, deps = {}) {
+  if (!guardOn(env)) return inner;
+  let mod = deps.guard;
+  if (!mod) {
+    try {
+      mod = await import("@tollxyz/guard");
+    } catch {
+      const e = new Error("Toll's guard is on but @tollxyz/guard is missing, so nothing is paid. Run: npm install @tollxyz/guard (TOLL_GUARD=off pays without the check)");
+      e.name = "GuardMissingError";
+      throw e;
+    }
+  }
+  return mod.guardX402Fetch(inner, guardOptions(deps));
+}
+
+/**
+ * What the guard did to a payment, read from the error it threw: { action: "BLOCK" | "WARN" | "NOT READ", paid: false,
+ * reasons }. null when the error is not the guard's (Toll's paid route itself failed, the network).
+ */
+export function guardStop(e) {
+  const name = e?.name;
+  if (name === "TollBlockedError" || name === "TollPolicyError") {
+    const a = e.assessment ?? {};
+    const all = (Array.isArray(a.warnings) ? a.warnings : []).filter((w) => w && typeof w.message === "string");
+    const link = a["x-toll"]?.link;
+    return {
+      action: a.action === "WARN" ? "WARN" : "BLOCK", paid: false,
+      reasons: all.slice(0, GUARD_SHOWN).map((w) => ({ code: typeof w.code === "string" ? w.code : null, severity: typeof w.severity === "string" ? w.severity : null, message: w.message.slice(0, 500) })),
+      ...(typeof link === "string" ? { link } : {}),
+    };
+  }
+  if (name === "TollUnavailableError") {
+    const why = typeof e.reason === "string" ? e.reason : "unavailable";
+    return { action: "NOT READ", paid: false, reasons: [{ code: `check-${why}`, severity: null, message: `Toll's check of this payment was not read (${why}). Not read is not clear.` }] };
+  }
+  if (name === "GuardMissingError") {
+    return { action: "NOT READ", paid: false, reasons: [{ code: "guard-missing", severity: null, message: "The guard is on but @tollxyz/guard is not installed on this host, so the check was not read. Not read is not clear." }] };
+  }
+  return null;
+}
+
+const GUARD_SAYS = {
+  BLOCK: ["guard-block", "Toll's check answered BLOCK for the payment to the upstream route, so it was not paid."],
+  WARN: ["guard-warn", "Toll's check answered WARN for the payment to the upstream route. The guard runs strict and does not pay on a WARN."],
+  "NOT READ": ["guard-not-read", "Toll's check of the payment to the upstream route was not read, so it was not paid."],
+};
+
+/** The 502 a handler answers when the guard stopped the upstream payment (the buyer is not charged); null for any other error. */
+export function guardAnswer(e) {
+  const g = guardStop(e);
+  if (!g) return null;
+  const [code, text] = GUARD_SAYS[g.action];
+  return json({ error: `${text} Nothing was charged.`, code, guard: g }, 502);
+}
+
 /**
  * A fetch that pays x402 routes on Robinhood Chain with TOLL_PAYER_KEY (a throwaway wallet with a few cents of USDG).
- * The x402 client, viem and the key are loaded only here, only when the key is set. One payment is capped at 0.05 USDG.
+ * The x402 client, viem, the guard and the key are loaded only here, only when the key is set. One payment is capped
+ * at 0.05 USDG. Every 402 goes through Toll's guard before it is paid, unless TOLL_GUARD=off.
+ * deps (tests): payFetch = the fetch that reaches the paid route, tollFetch = the fetch that reaches Toll's check.
  */
-export async function payerFor(key) {
+export async function payerFor(key, env = {}, deps = {}) {
   if (!/^0x[0-9a-fA-F]{64}$/.test(key ?? "")) throw new Error("TOLL_PAYER_KEY must be 0x + 64 hex (a throwaway wallet key)");
-  if (payers.has(key)) return payers.get(key);
+  const kept = deps.payFetch || deps.tollFetch || deps.guard ? null : `${key}:${guardOn(env) ? "on" : "off"}`;
+  if (kept && payers.has(kept)) return payers.get(kept);
   let mods;
   try {
     mods = await Promise.all([import("@x402/fetch"), import("@x402/evm/exact/client"), import("viem/accounts")]);
   } catch {
-    throw new Error("TOLL_PAYER_KEY is set but the optional packages are missing. Run: npm install @x402/fetch @x402/evm viem");
+    throw new Error("TOLL_PAYER_KEY is set but the optional packages are missing. Run: npm install @x402/fetch @x402/evm viem @tollxyz/guard");
   }
   const [{ x402Client, wrapFetchWithPayment }, { ExactEvmScheme }, { privateKeyToAccount }] = mods;
   const client = new x402Client()
     .register("eip155:4663", new ExactEvmScheme(privateKeyToAccount(key)))
     .setSpendControls({ allowedAssets: [{ network: "eip155:4663", asset: USDG_ASSET, maxAmountPerPayment: "50000" }] });
-  const pay = wrapFetchWithPayment(fetch, client);
-  payers.set(key, pay);
+  const pay = wrapFetchWithPayment(await guarded(deps.payFetch ?? fetch, env, deps), client);
+  if (kept) payers.set(kept, pay);
   return pay;
 }
 
-/** The payer a handler uses: deps.pay when a test gives one, else the lazy one for TOLL_PAYER_KEY. */
+/** The payer a handler uses: deps.pay when a test gives one, else the lazy, guarded one for TOLL_PAYER_KEY. */
 export function payOf(env, deps) {
   if (!(env.TOLL_PAYER_KEY ?? "").trim()) return null;
-  return deps.pay ?? (async (url, init) => (await payerFor(env.TOLL_PAYER_KEY.trim()))(url, init));
+  return deps.pay ?? (async (url, init) => (await payerFor(env.TOLL_PAYER_KEY.trim(), env, deps))(url, init));
 }

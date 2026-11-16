@@ -51,6 +51,11 @@ checked and settled by the facilitator, which pays the gas and needs no account 
 template can hold are ones you set yourself in your own environment, and none is ever logged or sent anywhere but the one
 service it is meant for.
 
+**Toll's guard is on in every template.** The only thing a template ever signs is a payment from the optional payer key
+(`coin-safety`, `stock-researcher`, `tx-guard`), and Toll's check reads each one before it is paid: only an `ALLOW` is
+paid, a `BLOCK` or a `WARN` is not and comes back with the reasons, and a check that could not be read comes back as
+`NOT READ`, never as clear. To turn it off set `TOLL_GUARD=off`. The other templates never sign and never pay.
+
 ## What is in a folder
 
 | file | what it is |

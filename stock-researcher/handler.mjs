@@ -2,7 +2,9 @@
 // answer carries a CIK. The default answer is a short brief a person or an agent can read at once; ?full=1 adds every
 // field that was read under "raw". A part that cannot be read is null and named in notRead. When Toll says its free
 // rate is used up (429): with TOLL_PAYER_KEY the matching x402 route is paid, without it the answer is 503 "quota".
-import { json, payOf } from "./seller.mjs";
+// Each of those payments goes through Toll's guard first (seller.mjs, on unless TOLL_GUARD=off): a read whose payment
+// the guard stopped is null, named in notRead, and listed under "guard" with BLOCK, WARN or NOT READ and the reasons.
+import { json, payOf, guardStop } from "./seller.mjs";
 
 const TOLL = "https://t0ll.xyz";
 const QUOTA = { error: "Toll's free rate is reached. Set TOLL_PAYER_KEY to keep answering.", code: "quota" };
@@ -19,7 +21,7 @@ async function readJson(res) {
   try { return await res.json(); } catch { return null; }
 }
 
-// -> { data } | { quota: true } | { data: null }
+// -> { data } | { quota: true } | { data: null } | { data: null, guard } when the guard stopped the payment
 async function tollRead(name, ticker, env, deps) {
   const get = deps.fetch ?? globalThis.fetch;
   const [free, paidUrl] = READS[name](ticker);
@@ -33,8 +35,9 @@ async function tollRead(name, ticker, env, deps) {
     }
     if (!res.ok) return { data: null };
     return { data: await readJson(res) };
-  } catch {
-    return { data: null };
+  } catch (e) {
+    const guard = guardStop(e);
+    return guard ? { data: null, guard } : { data: null };
   }
 }
 
@@ -159,7 +162,14 @@ export async function handle(req, env, deps = {}) {
   if (got.some((g) => g.quota)) return json(QUOTA, 503);
   const raw = {};
   names.forEach((n, i) => { raw[n] = got[i].data ?? null; });
-  if (names.every((n) => raw[n] === null)) return json({ error: "Toll could not be read for this ticker. Nothing was charged.", code: "upstream" }, 502);
+  // the payments the guard stopped: each with its read, the word (BLOCK, WARN or NOT READ) and Toll's reasons
+  const stopped = names.flatMap((n, i) => (got[i].guard ? [{ read: n, ...got[i].guard }] : []));
+  const guard = stopped.length ? { guard: stopped } : {};
+  if (names.every((n) => raw[n] === null)) {
+    return json(stopped.length
+      ? { error: "Toll's guard stopped the payment for every read, so nothing was paid and nothing was read. Nothing was charged.", code: "guard", ...guard }
+      : { error: "Toll could not be read for this ticker. Nothing was charged.", code: "upstream" }, 502);
+  }
 
   const cik = raw.stock?.company?.cik ?? raw.fundamentals?.cik ?? null;
   raw.filings = cik ? await secFilings(cik, env, deps) : null;
@@ -169,6 +179,7 @@ export async function handle(req, env, deps = {}) {
   return json({
     ...brief,
     ...(notRead.length ? { notRead } : {}),
+    ...guard,
     source: "toll markets + SEC EDGAR",
     ...(full ? { raw } : { more: "add ?full=1 for every field that was read, under raw" }),
   });

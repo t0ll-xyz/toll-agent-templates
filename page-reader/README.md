@@ -30,6 +30,9 @@ start command and the health route).
 
 This template does not call Toll. Toll earns the build fee only; nothing is taken out of a payment.
 
+**Toll's guard:** this template never signs and never pays, so there is nothing for the guard to check. If you add a
+payer, use `payOf` from `seller.mjs`: it goes through the guard, which is on unless `TOLL_GUARD=off`.
+
 ## What it will not fetch
 
 Only `https` pages on public hosts. A host that resolves to a private, loopback or link-local address is refused, and

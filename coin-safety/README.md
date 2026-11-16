@@ -25,6 +25,7 @@ PAY_TO=0xYourWallet npm start
 | `PORT` | no | port to listen on. Default `4021` |
 | `TOLL_KEY` | no | a Toll API key, if you have one. Sent to Toll as `x-api-key` on the free check |
 | `TOLL_PAYER_KEY` | no | a **throwaway** wallet key on your host with a few cents of USDG, used only to pay Toll's x402 check past the free quota |
+| `TOLL_GUARD` | no | Toll's guard in front of the payer key: its check runs before anything is paid. On by default; `off` turns it off |
 
 ## Where it calls Toll, and what that costs
 
@@ -37,6 +38,11 @@ PAY_TO=0xYourWallet npm start
 
 The payer is built only when the key is set, and the key is used for nothing else. It is never logged or returned. Use a
 throwaway wallet and keep only a few cents in it. Toll never sees your wallet key or your payer key.
+
+**Toll's guard is on.** Before the payer key pays a `402`, Toll's check reads it (who gets paid, how much, in what), on the
+guard's strict preset with a 4 s budget inside a 5 s timeout. Only an `ALLOW` is paid. On `BLOCK` or `WARN` nothing is paid
+and Toll's reasons come back to the caller; a check that could not be read comes back as `NOT READ`, never as clear. To turn
+it off set `TOLL_GUARD=off`.
 
 ## What a caller gets
 

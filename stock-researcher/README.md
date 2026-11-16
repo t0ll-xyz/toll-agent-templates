@@ -27,6 +27,7 @@ PAY_TO=0xYourWallet SEC_USER_AGENT="Your Name you@example.com" npm start
 | `PORT` | no | port to listen on. Default `4021` |
 | `SEC_USER_AGENT` | yes | a contact string for SEC's User-Agent rule. The server will not start without it |
 | `TOLL_PAYER_KEY` | no | a **throwaway** wallet key on your host with a few cents of USDG, used only to pay Toll's x402 reads past the free rate |
+| `TOLL_GUARD` | no | Toll's guard in front of the payer key: its check runs before anything is paid. On by default; `off` turns it off |
 
 **About `SEC_USER_AGENT`:** SEC requires every automated caller to say who it is, and this string is sent to SEC with every
 filings request. It is public to SEC, so do not use a contact you want private. It is sent to SEC only, never to Toll.
@@ -49,6 +50,11 @@ agent answer `503` with `code: "quota"`, and the buyer is not charged.
 
 The payer is built only when the key is set, and the key is used for nothing else. It is never logged or returned. Toll
 never sees your keys.
+
+**Toll's guard is on.** Before the payer key pays a `402`, Toll's check reads it (who gets paid, how much, in what), on the
+guard's strict preset with a 4 s budget inside a 5 s timeout. Only an `ALLOW` is paid. On `BLOCK` or `WARN` nothing is paid
+and Toll's reasons come back to the caller; a check that could not be read comes back as `NOT READ`, never as clear. To turn
+it off set `TOLL_GUARD=off`.
 
 ## What a caller gets
 

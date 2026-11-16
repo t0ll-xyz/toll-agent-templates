@@ -33,6 +33,9 @@ Every call reads two free Toll routes: `GET https://t0ll.xyz/api/approvals/<wall
 in `notRead`; when neither answers, the agent answers `503` (rate reached) or `502`, and a failed call is never settled.
 Toll earns the build fee only; nothing is taken out of a payment.
 
+**Toll's guard:** this template never signs and never pays, so there is nothing for the guard to check. If you add a
+payer, use `payOf` from `seller.mjs`: it goes through the guard, which is on unless `TOLL_GUARD=off`.
+
 ## What a caller gets
 
 ```json

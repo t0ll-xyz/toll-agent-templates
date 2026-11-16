@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 export const PAY_TO = "0x00000000000000000000000000000000000000a1"; // a made-up wallet, not a real one
 export const USDG = "0x5fc5360d0400a0fd4f2af552add042d716f1d168";
 export const OWN_ENV = [
-  "PAY_TO", "AGENT_ID", "PRICE", "PORT", "TOLL_KEY", "TOLL_PAYER_KEY", "SEC_USER_AGENT",
+  "PAY_TO", "AGENT_ID", "PRICE", "PORT", "TOLL_KEY", "TOLL_PAYER_KEY", "TOLL_GUARD", "SEC_USER_AGENT",
   "MODEL_BASE_URL", "MODEL_API_KEY", "MODEL", "UPSTREAM_URL", "UPSTREAM_AUTH_HEADER",
 ];
 

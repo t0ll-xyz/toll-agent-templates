@@ -33,6 +33,9 @@ answers `429` the agent answers `503` with `code: "quota"`; a failed call is nev
 For a feed with no rate limit, Toll's own paid route is `GET https://t0ll.xyz/api/x402/fresh` ($0.01 USDG a call).
 Toll earns the build fee only; nothing is taken out of a payment.
 
+**Toll's guard:** this template never signs and never pays, so there is nothing for the guard to check. If you add a
+payer, use `payOf` from `seller.mjs`: it goes through the guard, which is on unless `TOLL_GUARD=off`.
+
 ## What a caller gets
 
 ```json

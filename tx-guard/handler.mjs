@@ -1,6 +1,8 @@
 // What one paid call does: send the transaction to Toll's free pre-sign check; only when Toll says its free rate is used
 // up (429) and TOLL_PAYER_KEY is set, pay Toll's x402 pre-sign check ($0.005 USDG). The key is never logged or returned.
-import { json, payOf } from "./seller.mjs";
+// That payment goes through Toll's guard first (seller.mjs, on unless TOLL_GUARD=off): when the guard stops it, the
+// answer is a 502 that says BLOCK, WARN or NOT READ with the reasons, and nothing is paid.
+import { json, payOf, guardAnswer } from "./seller.mjs";
 
 const TOLL = "https://t0ll.xyz";
 const QUOTA = { error: "Toll's free rate is reached. Set TOLL_PAYER_KEY to keep answering.", code: "quota" };
@@ -35,8 +37,8 @@ export async function handle(req, env, deps = {}) {
       if (!pay) return json(QUOTA, 503);
       res = await pay(`${TOLL}/api/x402/tx`, init);
     }
-  } catch {
-    return json({ error: "Toll could not be reached. Nothing was charged.", code: "upstream" }, 502);
+  } catch (e) {
+    return guardAnswer(e) ?? json({ error: "Toll could not be reached. Nothing was charged.", code: "upstream" }, 502);
   }
   if (res.status === 429) return json(QUOTA, 503);
   if (!res.ok) return json({ error: `Toll answered ${res.status}. Nothing was charged.`, code: "upstream" }, 502);

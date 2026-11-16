@@ -1,8 +1,10 @@
 // What one paid call does: ask Toll's free check first; only when Toll says its free quota is used up (429) and
-// TOLL_PAYER_KEY is set, pay Toll's x402 check ($0.005 USDG). The key is never logged or returned.
+// TOLL_PAYER_KEY is set, pay Toll's x402 check ($0.005 USDG). The key is never logged or returned. That payment goes
+// through Toll's guard first (seller.mjs, on unless TOLL_GUARD=off): when the guard stops it, the answer is a 502 that
+// says BLOCK, WARN or NOT READ with the reasons, and nothing is paid.
 // The default answer is short: the verdict word, one line, and the findings that are not good news. ?full=1 adds
 // Toll's tallies and every flag under "raw".
-import { json, payOf } from "./seller.mjs";
+import { json, payOf, guardAnswer } from "./seller.mjs";
 
 const TOLL = "https://t0ll.xyz";
 const QUOTA = { error: "Toll's free quota is reached. Set TOLL_PAYER_KEY to keep answering.", code: "quota" };
@@ -37,8 +39,8 @@ export async function handle(req, env, deps = {}) {
       if (!pay) return json(QUOTA, 503);
       res = await pay(`${TOLL}/api/x402/check/${token}`, { headers: { accept: "application/json" } });
     }
-  } catch {
-    return json({ error: "Toll could not be reached. Nothing was charged.", code: "upstream" }, 502);
+  } catch (e) {
+    return guardAnswer(e) ?? json({ error: "Toll could not be reached. Nothing was charged.", code: "upstream" }, 502);
   }
   if (res.status === 429) return json(QUOTA, 503);
   if (!res.ok) return json({ error: `Toll answered ${res.status}. Nothing was charged.`, code: "upstream" }, 502);

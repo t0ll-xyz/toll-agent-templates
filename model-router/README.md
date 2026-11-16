@@ -41,6 +41,9 @@ comes back as it is. The answer is returned whole (`stream` is always off). Pric
 
 Nowhere. Settlement through the facilitator is free. Toll never sees your keys.
 
+**Toll's guard:** this template never signs and never pays, so there is nothing for the guard to check. If you add a
+payer, use `payOf` from `seller.mjs`: it goes through the guard, which is on unless `TOLL_GUARD=off`.
+
 ## Deploy
 
 Vercel: `api/index.mjs` exports the agent in the Web-handler form (`export default { fetch }`), and `vercel.json` sends every

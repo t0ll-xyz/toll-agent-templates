@@ -26,6 +26,7 @@ start command and the health route).
 | `PRICE` | no | price per call in USDG. Default 0.01. |
 | `PORT` | no | port the agent listens on. Default 4021. |
 | `TOLL_PAYER_KEY` | no | a THROWAWAY wallet key on your host, used only to pay Toll's x402 pre-sign check past the free rate |
+| `TOLL_GUARD` | no | Toll's guard in front of the payer key: its check runs before anything is paid. On by default; `off` turns it off |
 
 ## Where it calls Toll, and what that costs
 
@@ -38,6 +39,11 @@ start command and the health route).
 
 The payer is built only when the key is set, and the key is used for nothing else. It is never logged or returned. Use a
 throwaway wallet and keep only a few cents in it.
+
+**Toll's guard is on.** Before the payer key pays a `402`, Toll's check reads it (who gets paid, how much, in what), on the
+guard's strict preset with a 4 s budget inside a 5 s timeout. Only an `ALLOW` is paid. On `BLOCK` or `WARN` nothing is paid
+and Toll's reasons come back to the caller; a check that could not be read comes back as `NOT READ`, never as clear. To turn
+it off set `TOLL_GUARD=off`.
 
 ## What the word means
 

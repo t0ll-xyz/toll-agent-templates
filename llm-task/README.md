@@ -33,6 +33,9 @@ start command and the health route).
 
 This template does not call Toll. Toll earns the build fee only; nothing is taken out of a payment.
 
+**Toll's guard:** this template never signs and never pays, so there is nothing for the guard to check. If you add a
+payer, use `payOf` from `seller.mjs`: it goes through the guard, which is on unless `TOLL_GUARD=off`.
+
 ## Your key and your cost
 
 `MODEL_API_KEY` goes only into the `Authorization` header of the one request to your model API. It is never logged, and
